@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>월드 스탑워치</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DotGothic16&family=Noto+Sans+KR:wght@300;400;500;700&family=Orbitron:wght@500;700&family=Roboto+Mono:wght@300;400&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #e9c46a;
+    --glass: rgba(12, 14, 20, .42);
+    --glass-strong: rgba(10, 12, 18, .62);
+    --line: rgba(255, 255, 255, .14);
+    --text: #f6f3ec;
+    --muted: rgba(246, 243, 236, .62);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: #05070b; color: var(--text);
+    font-family: 'Noto Sans KR', system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- 배경 ---------- */
+  #bg { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #1c2533, #05070b); }
+  .bg-layer {
+    position: absolute; inset: -5%;
+    background-size: cover; background-position: center;
+    opacity: 0; transition: opacity 1.8s ease;
+    filter: saturate(1.08) contrast(1.06) brightness(.8);
+    animation: kenburns 40s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+  .bg-layer.show { opacity: 1; }
+  @keyframes kenburns {
+    from { transform: scale(1.02) translate3d(0, 0, 0); }
+    to   { transform: scale(1.14) translate3d(-1.6%, -1.2%, 0); }
+  }
+  #shade {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 35%, rgba(0,0,0,.55) 100%),
+      linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.08) 28%, rgba(0,0,0,.18) 60%, rgba(0,0,0,.78) 100%);
+  }
+  #grain { position: fixed; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay; }
+
+  /* ---------- 워치 화면 ---------- */
+  #app {
+    position: fixed; inset: 0;
+    display: grid; grid-template-rows: auto 1fr auto;
+    padding: 22px 28px 18px;
+    opacity: 0; transition: opacity 1s ease;
+  }
+  #app.ready { opacity: 1; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .place .en { font-size: 12px; letter-spacing: .34em; color: var(--muted); text-transform: uppercase; }
+  .place h1 {
+    font-family: 'Cormorant Garamond', 'Noto Sans KR', serif; font-weight: 600;
+    font-size: clamp(26px, 4vw, 44px); line-height: 1.1; margin: 6px 0 4px;
+    text-shadow: 0 2px 24px rgba(0,0,0,.55);
+  }
+  .place .sub { font-size: 14px; color: var(--muted); }
+  #sceneBtn {
+    margin-top: 10px; height: 30px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--glass); color: var(--text);
+    font-size: 12px; cursor: pointer; backdrop-filter: blur(12px);
+  }
+  .localtime { text-align: right; flex-shrink: 0; }
+  .localtime .lbl { font-size: 11px; letter-spacing: .28em; color: var(--muted); }
+  .localtime .t { font-family: 'Roboto Mono', monospace; font-size: 22px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .localtime .z { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  main {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; min-height: 0;
+  }
+  .face { position: relative; }
+  .face.analog { width: min(40vh, 76vw, 340px); aspect-ratio: 1; }
+  .face.analog::before {
+    content: ''; position: absolute; inset: -14%; border-radius: 50%;
+    background: radial-gradient(circle, var(--glow, rgba(255,220,150,.35)) 0%, transparent 65%);
+    filter: blur(10px); z-index: -1;
+  }
+  .face svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 18px 40px rgba(0,0,0,.6)); }
+  .face .hands { filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+  .face.digital { width: min(92vw, 600px); }
+
+  #readout {
+    font-family: 'Roboto Mono', monospace; font-weight: 300;
+    font-size: clamp(30px, 5.4vw, 46px); letter-spacing: .02em;
+    padding: 6px 24px; border-radius: 16px;
+    background: var(--glass); border: 1px solid var(--line);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  #readout .cs, .digits .cs { font-size: .62em; opacity: .75; }
+
+  .controls { display: flex; gap: 14px; width: min(92vw, 360px); }
+  .btn {
+    flex: 1; height: 54px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--glass); color: var(--text);
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    transition: transform .08s, opacity .2s, background .3s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  #startBtn { background: var(--accent); color: #14110a; border-color: transparent; }
+  #startBtn.running { background: #e5484d; color: #fff; }
+
+  #lapsWrap {
+    width: min(92vw, 360px); max-height: 18vh; overflow-y: auto;
+    background: var(--glass); border: 1px solid var(--line); border-radius: 16px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  }
+  #lapsWrap[hidden] { display: none; }
+  #laps { list-style: none; margin: 0; padding: 0 16px; }
+  #laps li {
+    display: flex; justify-content: space-between; padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    font-family: 'Roboto Mono', monospace; font-size: 14px; font-variant-numeric: tabular-nums;
+  }
+  #laps li:last-child { border-bottom: none; }
+  #laps li span:first-child { font-family: 'Noto Sans KR'; color: var(--muted); }
+  #laps li.best span:last-child { color: #5ee69a; }
+  #laps li.worst span:last-child { color: #ff7a72; }
+  @media (min-width: 1100px) {
+    #lapsWrap { position: fixed; right: 28px; top: 50%; transform: translateY(-50%); width: 300px; max-height: 46vh; }
+  }
+
+  footer { display: flex; justify-content: space-between; align-items: flex-end; min-height: 24px; }
+  .credit { font-size: 11px; color: var(--muted); max-width: 55vw; }
+  .credit a { color: inherit; }
+  .hint { font-size: 11px; color: var(--muted); opacity: .8; margin-top: 4px; }
+
+  /* 미니 지구본 */
+  #miniWrap {
+    position: fixed; right: 26px; bottom: 22px; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transform-origin: 100% 100%;
+    transition: transform .7s cubic-bezier(.2,.8,.2,1);
+  }
+  #miniWrap.flying { transform: scale(1.9); cursor: default; }
+  #mini { width: 132px; height: 132px; display: block; }
+  #miniLabel {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(10px);
+  }
+  #miniWrap:hover #miniLabel { background: var(--glass-strong); }
+  #flightTag {
+    position: fixed; right: 26px; bottom: 300px; z-index: 6;
+    padding: 6px 14px; border-radius: 999px; font-size: 13px;
+    background: var(--glass-strong); border: 1px solid var(--line); backdrop-filter: blur(10px);
+    opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s; pointer-events: none;
+  }
+  #flightTag.show { opacity: 1; transform: none; }
+
+  /* ---------- 디지털 페이스 ---------- */
+  .panel { position: relative; border-radius: 18px; padding: 16px 22px 14px; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+  .panel .tag { font-size: 11px; font-weight: 600; letter-spacing: .3em; margin-bottom: 8px; }
+  .panel .digits { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; line-height: 1.05; }
+  .panel .row { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .2em; margin-top: 8px; }
+
+  .led { background: #040404; border: 2px solid #1b1b1b; }
+  .led .tag { color: #ff3b5c; }
+  .led .digits { font-family: 'DotGothic16', monospace; font-size: clamp(38px, 9.5vw, 82px); color: #fff; text-shadow: 0 0 6px #fff, 0 0 18px #ff2d55, 0 0 40px #ff2d55; }
+  .led .digits .cs { color: #ff4d6a; opacity: 1; }
+  .led .row { color: rgba(255,255,255,.6); font-family: 'DotGothic16'; }
+  .led::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(circle, transparent 1.1px, rgba(0,0,0,.6) 1.6px); background-size: 4px 4px; }
+
+  .ticker { background: linear-gradient(#0d0a05, #000); border: 1px solid #3a2a00; }
+  .ticker .tag { color: #ffb000; }
+  .ticker .digits { font-family: 'VT323', monospace; font-size: clamp(56px, 13vw, 112px); color: #ffb000; text-shadow: 0 0 12px rgba(255,176,0,.55); }
+  .ticker .tape { margin-top: 6px; border-top: 1px solid #3a2a00; padding-top: 6px; overflow: hidden; white-space: nowrap; font-family: 'VT323', monospace; font-size: 24px; color: #ffcf5a; }
+  .tape-inner { display: inline-block; padding-left: 100%; animation: tape 20s linear infinite; }
+  @keyframes tape { to { transform: translateX(-100%); } }
+  .tape .up { color: #2bd97c; } .tape .down { color: #ff5a4f; }
+
+  .dash { background: linear-gradient(180deg, #161b21, #050709); border: 1px solid #2a3138; border-radius: 28px 28px 70px 70px / 28px 28px 46px 46px; box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 24px 70px rgba(0,0,0,.65); padding-bottom: 22px; }
+  .dash .tag, .dash .row { font-family: 'Orbitron'; color: #4fc9d6; }
+  .dash .digits { font-family: 'Orbitron', monospace; font-weight: 500; font-size: clamp(32px, 8vw, 66px); color: #8af7ff; text-shadow: 0 0 8px rgba(80,240,255,.85), 0 0 26px rgba(80,240,255,.35); }
+
+  .neon { background: rgba(12, 0, 22, .5); border: 1px solid rgba(255, 62, 200, .35); backdrop-filter: blur(6px); }
+  .neon .tag { color: #55f0ff; text-shadow: 0 0 8px #55f0ff; }
+  .neon .row { color: #ff9be6; }
+  .neon .digits { font-family: 'Orbitron', monospace; font-weight: 700; font-size: clamp(32px, 8vw, 66px); color: #fff0fb; text-shadow: 0 0 4px #fff, 0 0 12px #ff3ec8, 0 0 30px #ff3ec8, 0 0 64px #ff3ec8; animation: flicker 7s infinite; }
+  @keyframes flicker { 0%, 18%, 22%, 61%, 65%, 100% { opacity: 1; } 20%, 63% { opacity: .72; } }
+
+  /* ---------- 지구본 선택 화면 ---------- */
+  #picker {
+    position: fixed; inset: 0; z-index: 20;
+    background: #01030a url("https://unpkg.com/three-globe@2.31.0/example/img/night-sky.png") center / cover;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    padding: 20px 16px;
+    opacity: 0; pointer-events: none; transition: opacity .7s ease;
+  }
+  #picker.open { opacity: 1; pointer-events: auto; }
+  #picker h2 { margin: 0; font-family: 'Cormorant Garamond', 'Noto Sans KR', serif; font-weight: 600; font-size: clamp(26px, 4vw, 40px); text-align: center; }
+  #picker p.lead { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+  #big { width: min(62vh, 92vw, 640px); height: min(62vh, 92vw, 640px); touch-action: none; cursor: grab; }
+  #big.dragging { cursor: grabbing; }
+  #big.hovering { cursor: pointer; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 940px; }
+  .chip {
+    height: 32px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--text); font-size: 13px;
+    transition: background .2s, border-color .2s;
+  }
+  .chip:hover, .chip.hot { background: rgba(255, 207, 107, .18); border-color: rgba(255, 207, 107, .6); }
+  .chip.current { border-color: #fff; }
+  #countdown { position: absolute; top: 22px; right: 24px; width: 64px; height: 64px; }
+  #countdown[hidden] { display: none; }
+  #countdown svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  #countdown .num { position: absolute; inset: 0; display: grid; place-items: center; font-family: 'Roboto Mono'; font-size: 20px; }
+  #countdown .cap { position: absolute; top: 68px; right: 0; width: 140px; text-align: right; font-size: 11px; color: var(--muted); }
+  #closePicker {
+    position: absolute; top: 20px; left: 20px; width: 42px; height: 42px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--glass); color: var(--text); font-size: 20px; cursor: pointer;
+  }
+  #closePicker[hidden] { display: none; }
+  #globeLoading { position: absolute; color: var(--muted); font-size: 13px; pointer-events: none; }
+
+  #toast {
+    position: fixed; left: 50%; top: 22px; z-index: 30; transform: translate(-50%, -12px);
+    padding: 10px 18px; border-radius: 999px; font-size: 14px;
+    background: var(--glass-strong); border: 1px solid var(--line); backdrop-filter: blur(12px);
+    opacity: 0; transition: opacity .4s, transform .4s; pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 640px) {
+    #app { padding: 16px 16px 14px; }
+    header { flex-direction: column; gap: 8px; }
+    .localtime { text-align: left; }
+    .localtime .t { font-size: 17px; }
+    #mini { width: 92px; height: 92px; }
+    #miniWrap { right: 14px; bottom: 14px; }
+    #flightTag { right: 14px; bottom: 210px; }
+    .credit { max-width: 60vw; }
+    .hint { display: none; }
+    #big { width: min(52vh, 92vw); height: min(52vh, 92vw); }
+    .chip { height: 28px; padding: 0 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bg"><div class="bg-layer"></div><div class="bg-layer"></div></div>
+<div id="shade"></div>
+<div id="grain"></div>
+
+<div id="app">
+  <header>
+    <div class="place">
+      <div class="en" id="placeEn"></div>
+      <h1 id="placeTitle"></h1>
+      <div class="sub" id="placeSub"></div>
+      <button id="sceneBtn" hidden></button>
+    </div>
+    <div class="localtime">
+      <div class="lbl">현지 시각</div>
+      <div class="t" id="localTime">--:--:--</div>
+      <div class="z" id="localZone"></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="face" id="face"></div>
+    <div id="readout">00:00:00<span class="cs">.00</span></div>
+    <div class="controls">
+      <button class="btn" id="lapBtn" disabled>랩</button>
+      <button class="btn" id="startBtn">시작</button>
+    </div>
+    <div id="lapsWrap" hidden><ul id="laps"></ul></div>
+  </main>
+
+  <footer>
+    <div>
+      <div class="credit" id="credit"></div>
+      <div class="hint">Space 시작/정지 · L 랩 · R 초기화 · G 지구본</div>
+    </div>
+  </footer>
+</div>
+
+<div id="miniWrap" title="위치 변경">
+  <canvas id="mini"></canvas>
+  <div id="miniLabel">✈ 위치 변경</div>
+</div>
+<div id="flightTag"></div>
+
+<div id="picker">
+  <button id="closePicker" hidden aria-label="닫기">×</button>
+  <div id="countdown" hidden>
+    <svg viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="4"/>
+      <circle id="cdRing" cx="32" cy="32" r="27" fill="none" stroke="#ffcf6b" stroke-width="4" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="0"/>
+    </svg>
+    <div class="num" id="cdNum">10</div>
+    <div class="cap">지나면 무작위로 떠나요</div>
+  </div>
+  <h2>어디의 시계로 시간을 재볼까요?</h2>
+  <p class="lead">지구본을 돌려 핀을 누르거나 아래에서 도시를 고르세요.</p>
+  <div style="position:relative;display:grid;place-items:center">
+    <canvas id="big"></canvas>
+    <div id="globeLoading">지구본 불러오는 중…</div>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   데이터: 명소 · 사진 · 시계 디자인
+   ========================================================= */
+const IMG = (path, w) => {
+  const name = path.split('/').pop();
+  return w > 1920
+    ? `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}/1920px-${name}`
+    : `https://upload.wikimedia.org/wikipedia/commons/${path}`;
+};
+const FILEPAGE = path => 'https://commons.wikimedia.org/wiki/File:' + path.split('/').pop();
+
+const ROMAN = ['XII','I','II','III','IIII','V','VI','VII','VIII','IX','X','XI'];
+const ARABIC = ['12','1','2','3','4','5','6','7','8','9','10','11'];
+const ARABIC_INDIC = ['١٢','١','٢','٣','٤','٥','٦','٧','٨','٩','١٠','١١'];
+
+const LOCS = [
+  { id: 'london', city: '런던', country: '영국', lat: 51.5007, lon: -0.1246, tz: 'Europe/London',
+    scenes: [{ en: 'London · Westminster', title: '빅벤 · 엘리자베스 타워',
+      img: ['9/92/Big_Ben_Elizabeth_Tower_at_night_Christmas_2025_Intentional_photo.jpg', 2296], pos: '50% 30%',
+      face: { type: 'analog', dial: ['#fff6dc', '#d9c596'], bezel: ['#f0d27a', '#6e5016'], ink: '#1b1712', numerals: ROMAN, hand: '#1b1712', sec: '#a32a1d', glow: 'rgba(255,214,140,.5)', accent: '#ecc46a' } }] },
+  { id: 'prague', city: '프라하', country: '체코', lat: 50.0870, lon: 14.4207, tz: 'Europe/Prague',
+    scenes: [{ en: 'Prague · Old Town Square', title: '프라하 천문시계',
+      img: ['3/37/Astronomical_Clock_%288341899828%29.jpg', 1068], pos: '50% 40%',
+      face: { type: 'analog', dial: ['#3563a8', '#10244a'], bezel: ['#f3d47c', '#7a5714'], ink: '#f3d27c', numerals: ROMAN, hand: '#f3d27c', sec: '#fff1c4', deco: 'astro', glow: 'rgba(110,150,255,.4)', accent: '#f0c75e' } }] },
+  { id: 'venice', city: '베네치아', country: '이탈리아', lat: 45.4342, lon: 12.3388, tz: 'Europe/Rome',
+    scenes: [{ en: 'Venice · Piazza San Marco', title: '산마르코 시계탑',
+      img: ['1/13/Venice_clocktower_in_Piazza_San_Marco_%28torre_dell%27orologio%29_clockface.jpg', 2313], pos: '50% 45%',
+      face: { type: 'analog', dial: ['#2f58c0', '#0d1f5e'], bezel: ['#f6dc8a', '#8a6418'], ink: '#f6d77d', numerals: ROMAN, hand: '#f6d77d', sec: '#ffffff', deco: 'stars', glow: 'rgba(80,120,255,.4)', accent: '#f2cf6e' } }] },
+  { id: 'bern', city: '베른', country: '스위스', lat: 46.9480, lon: 7.4474, tz: 'Europe/Zurich',
+    scenes: [{ en: 'Bern · Old City', title: '치트글로게 시계탑',
+      img: ['1/17/Zytglogge_01.jpg', 2048], pos: '50% 35%',
+      face: { type: 'analog', dial: ['#2a2a2a', '#070707'], bezel: ['#e8c25c', '#5e4410'], ink: '#e8c25c', numerals: ARABIC, hand: '#e8c25c', sec: '#e04a3a', deco: 'sun', glow: 'rgba(255,200,100,.3)', accent: '#e8c25c' } }] },
+  { id: 'madrid', city: '마드리드', country: '스페인', lat: 40.4168, lon: -3.7038, tz: 'Europe/Madrid',
+    scenes: [{ en: 'Madrid · Puerta del Sol', title: '카사 데 코레오스 시계',
+      img: ['5/5c/Spain-32_-_Casa_de_Correos_%282218072087%29.jpg', 6765], pos: '50% 40%',
+      face: { type: 'analog', dial: ['#ffffff', '#e2e2e2'], bezel: ['#3c3c3c', '#0e0e0e'], ink: '#111', numerals: ROMAN, hand: '#111', sec: '#c8102e', glow: 'rgba(255,255,255,.25)', accent: '#f1bf00' } }] },
+  { id: 'budapest', city: '부다페스트', country: '헝가리', lat: 47.5009, lon: 19.0539, tz: 'Europe/Budapest',
+    scenes: [{ en: 'Budapest · Lipótváros', title: '성 이슈트반 대성당',
+      img: ['c/cd/St._Stephen%E2%80%99s_Basilica%2C_Budapest_2.jpg', 4608], pos: '50% 40%',
+      face: { type: 'analog', dial: ['#21302b', '#08100d'], bezel: ['#e3c06a', '#5c4413'], ink: '#e9c977', numerals: ROMAN, hand: '#e9c977', sec: '#e9c977', deco: 'sun', glow: 'rgba(240,200,120,.3)', accent: '#e3c06a' } }] },
+  { id: 'moscow', city: '모스크바', country: '러시아', lat: 55.7525, lon: 37.6213, tz: 'Europe/Moscow',
+    scenes: [{ en: 'Moscow · Red Square', title: '크렘린 스파스카야 탑',
+      img: ['2/25/Kremlin_Clock_tower_at_night.jpg', 1024], pos: '50% 40%',
+      face: { type: 'analog', dial: ['#1d1d1d', '#030303'], bezel: ['#f2cd6e', '#6b4c0f'], ink: '#f0c86a', numerals: ROMAN, hand: '#f0c86a', sec: '#e23b2e', glow: 'rgba(255,90,70,.3)', accent: '#e9b949' } }] },
+  { id: 'mecca', city: '메카', country: '사우디아라비아', lat: 21.4189, lon: 39.8256, tz: 'Asia/Riyadh',
+    scenes: [{ en: 'Makkah · Abraj Al Bait', title: '메카 로열 클락 타워',
+      img: ['2/27/Makkah_Clock_Tower_at_night%2C_Saudi_Arabia_%282%29_%2852500920892%29.jpg', 3000], pos: '50% 25%',
+      face: { type: 'analog', dial: ['#ffffff', '#dbeee2'], bezel: ['#38e08a', '#0b5b33'], ink: '#0c3b25', numerals: ARABIC_INDIC, hand: '#0c3b25', sec: '#0a8a4a', glow: 'rgba(60,255,150,.55)', accent: '#38d98a' } }] },
+  { id: 'mumbai', city: '뭄바이', country: '인도', lat: 18.9272, lon: 72.8306, tz: 'Asia/Kolkata',
+    scenes: [{ en: 'Mumbai · Fort', title: '라자바이 시계탑',
+      img: ['5/50/Rajabai_Clock_Tower%2C_Mumbai_%2831_August_2008%29.jpg', 1532], pos: '50% 30%',
+      face: { type: 'analog', dial: ['#f7efdf', '#d3c3a1'], bezel: ['#b9895a', '#4b3018'], ink: '#2a1d12', numerals: ROMAN, hand: '#2a1d12', sec: '#b0412e', glow: 'rgba(255,200,140,.3)', accent: '#ff9933' } }] },
+  { id: 'hongkong', city: '홍콩', country: '중국', lat: 22.2935, lon: 114.1694, tz: 'Asia/Hong_Kong',
+    scenes: [{ en: 'Hong Kong · Tsim Sha Tsui', title: '침사추이 시계탑',
+      img: ['3/32/Tsim_Sha_Tsui_Clock_Tower_night.jpg', 1600], pos: '50% 40%',
+      face: { type: 'analog', dial: ['#ffffff', '#d9d9d9'], bezel: ['#d6d6d6', '#4c4c4c'], ink: '#111', numerals: null, hand: '#111', sec: '#d0312d', glow: 'rgba(255,230,180,.4)', accent: '#ff5a5f' } }] },
+  { id: 'tokyo', city: '도쿄', country: '일본', lat: 35.6595, lon: 139.7005, tz: 'Asia/Tokyo',
+    scenes: [{ en: 'Tokyo · Shibuya', title: '시부야 스크램블 교차로',
+      img: ['8/88/Shibuya_Crossing%2C_Aerial.jpg', 3840], pos: '50% 50%',
+      face: { type: 'neon', tag: '渋谷 SHIBUYA · TOKYO', accent: '#ff3ec8' } }] },
+  { id: 'seoul', city: '서울', country: '대한민국', lat: 37.5559, lon: 126.9723, tz: 'Asia/Seoul',
+    scenes: [{ en: 'Seoul · Old Seoul Station', title: '문화역서울 284 시계',
+      img: ['b/b8/Old_Seoul_Station_clock_%28exterior%29.jpg', 9000], pos: '50% 35%',
+      face: { type: 'analog', dial: ['#fbf8ef', '#d8d0bc'], bezel: ['#6a5643', '#24190f'], ink: '#151515', numerals: ROMAN, hand: '#151515', sec: '#b8322a', glow: 'rgba(255,240,210,.3)', accent: '#e0b46c' } }] },
+  { id: 'melbourne', city: '멜버른', country: '호주', lat: -37.8183, lon: 144.9671, tz: 'Australia/Melbourne',
+    scenes: [{ en: 'Melbourne · Flinders St', title: '플린더스 스트리트 역',
+      img: ['2/2b/Illuminated_view_of_iconic_Flinders_Street_Station_in_Melbourne_at_night.jpg', 8192], pos: '50% 45%',
+      face: { type: 'analog', dial: ['#fff7e3', '#dfcfa4'], bezel: ['#e0b85a', '#6a4e1c'], ink: '#1d1d1d', numerals: ARABIC, hand: '#1d1d1d', sec: '#c0392b', glow: 'rgba(255,200,110,.45)', accent: '#f2b84b' } }] },
+  { id: 'newyork', city: '뉴욕', country: '미국', lat: 40.7580, lon: -73.9855, tz: 'America/New_York',
+    scenes: [
+      { en: 'New York · Times Square', title: '타임스스퀘어 전광판', short: '타임스스퀘어',
+        img: ['4/47/New_york_times_square-terabass.jpg', 3904], pos: '50% 40%',
+        face: { type: 'led', tag: 'TIMES SQ · NEW YORK', accent: '#ff3b5c' } },
+      { en: 'New York · Wall Street', title: '뉴욕증권거래소 티커', short: '월스트리트',
+        img: ['7/78/New_York_Stock_Exchange_Facade_2015.jpg', 4000], pos: '50% 35%',
+        face: { type: 'ticker', tag: 'NYSE · WALL STREET', accent: '#ffb000' } }
+    ] },
+  { id: 'losangeles', city: '로스앤젤레스', country: '미국', lat: 34.1184, lon: -118.3004, tz: 'America/Los_Angeles',
+    scenes: [{ en: 'Los Angeles · Griffith Park', title: '그리피스 천문대 드라이브',
+      img: ['4/4b/Griffith_observatory_2006.jpg', 2000], pos: '50% 50%',
+      face: { type: 'dash', tag: 'FM 98.7 · LA', accent: '#5ff4ff' } }] },
+  { id: 'rio', city: '리우데자네이루', country: '브라질', lat: -22.9035, lon: -43.1910, tz: 'America/Sao_Paulo',
+    scenes: [{ en: 'Rio de Janeiro · Centro', title: '센트랄 두 브라질 시계탑',
+      img: ['4/45/Central_do_Brasil_%284133888433%29.jpg', 2144], pos: '50% 30%',
+      face: { type: 'analog', dial: ['#ffffff', '#e2e2e2'], bezel: ['#d0d0d0', '#555'], ink: '#111', numerals: ROMAN, hand: '#111', sec: '#009c3b', glow: 'rgba(255,240,200,.35)', accent: '#ffdf00' } }] },
+];
+
+/* =========================================================
+   유틸
+   ========================================================= */
+const RAD = Math.PI / 180;
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const pad = n => String(n).padStart(2, '0');
+function fmt(ms) {
+  const cs = Math.floor(ms / 10) % 100, s = Math.floor(ms / 1000) % 60,
+        m = Math.floor(ms / 60000) % 60, h = Math.floor(ms / 3600000);
+  return [pad(h) + ':' + pad(m) + ':' + pad(s), '.' + pad(cs)];
+}
+const fmtHTML = ms => { const [a, b] = fmt(ms); return a + '<span class="cs">' + b + '</span>'; };
+const toVec = (lat, lon) => [Math.cos(lat * RAD) * Math.cos(lon * RAD), Math.cos(lat * RAD) * Math.sin(lon * RAD), Math.sin(lat * RAD)];
+const toLatLon = v => ({ lat: Math.asin(clamp(v[2], -1, 1)) / RAD, lon: Math.atan2(v[1], v[0]) / RAD });
+function slerp(a, b, t) {
+  const d = clamp(a[0]*b[0] + a[1]*b[1] + a[2]*b[2], -1, 1), w = Math.acos(d);
+  if (w < 1e-6) return a.slice();
+  const s = Math.sin(w), k1 = Math.sin((1 - t) * w) / s, k2 = Math.sin(t * w) / s;
+  return [a[0]*k1 + b[0]*k2, a[1]*k1 + b[1]*k2, a[2]*k1 + b[2]*k2];
+}
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+let toastTimer;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* 필름 그레인 */
+(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 140;
+  const x = c.getContext('2d'), d = x.createImageData(140, 140);
+  for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i+1] = d.data[i+2] = v; d.data[i+3] = 255; }
+  x.putImageData(d, 0, 0);
+  $('grain').style.backgroundImage = `url(${c.toDataURL()})`;
+})();
+
+/* =========================================================
+   지구본 렌더러 (NASA Blue Marble + 야간 도시 불빛, 실시간 낮/밤)
+   ========================================================= */
+const TEX_W = 2048, TEX_H = 1024;
+const TEX = { day: null, night: null };
+function loadTex(url, fallback) {
+  return new Promise(res => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      try {
+        const c = document.createElement('canvas'); c.width = TEX_W; c.height = TEX_H;
+        const x = c.getContext('2d'); x.drawImage(im, 0, 0, TEX_W, TEX_H);
+        res(new Uint32Array(x.getImageData(0, 0, TEX_W, TEX_H).data.buffer));
+      } catch (e) { res(fallback()); }
+    };
+    im.onerror = () => res(fallback());
+    im.src = url;
+  });
+}
+const solid = (r, g, b) => () => new Uint32Array(TEX_W * TEX_H).fill((255 << 24) | (b << 16) | (g << 8) | r);
+const texReady = Promise.all([
+  loadTex('https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg', solid(18, 52, 96)),
+  loadTex('https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg', solid(2, 6, 14)),
+]).then(([d, n]) => { TEX.day = d; TEX.night = n; });
+
+let sunCache = { t: 0, v: [1, 0, 0] };
+function sunVec() {
+  const now = Date.now();
+  if (now - sunCache.t < 30000) return sunCache.v;
+  const d = new Date(now);
+  const doy = (now - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
+  const decl = -23.44 * Math.cos(2 * Math.PI / 365 * (doy + 10));
+  const utcH = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+  sunCache = { t: now, v: toVec(decl, (12 - utcH) * 15) };
+  return sunCache.v;
+}
+
+class Globe {
+  constructor(canvas) { this.c = canvas; this.ctx = canvas.getContext('2d'); this.n = 0; }
+  setRes(n) {
+    n = Math.round(n); if (n === this.n) return;
+    this.n = n; this.c.width = this.c.height = n;
+    this.R = n * 0.42; this.cx = this.cy = n / 2;
+    this.img = this.ctx.createImageData(n, n);
+    this.buf = new Uint32Array(this.img.data.buffer);
+    const idx = [], xs = [], ys = [], zs = [];
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const dx = (x + .5 - this.cx) / this.R, dy = (this.cy - (y + .5)) / this.R, d2 = dx*dx + dy*dy;
+      if (d2 < 1) { idx.push(y * n + x); xs.push(dx); ys.push(dy); zs.push(Math.sqrt(1 - d2)); }
+    }
+    this.idx = Int32Array.from(idx); this.xs = Float32Array.from(xs); this.ys = Float32Array.from(ys); this.zs = Float32Array.from(zs);
+  }
+  basis(lat0, lon0) {
+    const cl = Math.cos(lat0 * RAD), sl = Math.sin(lat0 * RAD), co = Math.cos(lon0 * RAD), so = Math.sin(lon0 * RAD);
+    this.E = [-so, co, 0];
+    this.N = [-sl * co, -sl * so, cl];
+    this.C = [cl * co, cl * so, sl];
+  }
+  // 세계 벡터 → 화면 좌표
+  projV(v, k = 1) {
+    const x = v[0]*this.E[0] + v[1]*this.E[1];
+    const y = v[0]*this.N[0] + v[1]*this.N[1] + v[2]*this.N[2];
+    const z = v[0]*this.C[0] + v[1]*this.C[1] + v[2]*this.C[2];
+    return { x: this.cx + x * k * this.R, y: this.cy - y * k * this.R, z, vis: z > 0 || (x*x + y*y) * k * k > 1 };
+  }
+  draw(lat0, lon0, ov = {}) {
+    const ctx = this.ctx, n = this.n;
+    this.basis(lat0, lon0);
+    ctx.clearRect(0, 0, n, n);
+    if (TEX.day) {
+      const { E, N, C } = this, S = sunVec(), day = TEX.day, night = TEX.night, buf = this.buf;
+      const xs = this.xs, ys = this.ys, zs = this.zs, idx = this.idx, len = idx.length;
+      const I2P = 1 / (2 * Math.PI), IP = 1 / Math.PI;
+      for (let k = 0; k < len; k++) {
+        const x = xs[k], y = ys[k], z = zs[k];
+        const px = x*E[0] + y*N[0] + z*C[0], py = x*E[1] + y*N[1] + z*C[1], pz = y*N[2] + z*C[2];
+        let u = ((Math.atan2(py, px) * I2P + .5) * TEX_W) | 0; if (u >= TEX_W) u = TEX_W - 1; else if (u < 0) u = 0;
+        let v = ((.5 - Math.asin(pz > 1 ? 1 : pz < -1 ? -1 : pz) * IP) * TEX_H) | 0; if (v >= TEX_H) v = TEX_H - 1; else if (v < 0) v = 0;
+        const ti = v * TEX_W + u, dc = day[ti], nc = night[ti];
+        const L = px*S[0] + py*S[1] + pz*S[2];
+        let t = (L + .07) * 5; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const dk = (.3 + .85 * (L > 0 ? L : 0)) * t + .06, nk = (1 - t) * 1.3;
+        const rim = .6 + .4 * z, a = 1 - z, atm = a * a * a;
+        let r = ((dc & 255) * dk + (nc & 255) * nk) * rim + atm * 60;
+        let g = (((dc >> 8) & 255) * dk + ((nc >> 8) & 255) * nk) * rim + atm * 125;
+        let b = (((dc >> 16) & 255) * dk + ((nc >> 16) & 255) * nk) * rim + atm * 240;
+        buf[idx[k]] = 0xff000000 | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
+      }
+      ctx.putImageData(this.img, 0, 0);
+    } else {
+      const g = ctx.createRadialGradient(this.cx - this.R*.3, this.cy - this.R*.3, 0, this.cx, this.cy, this.R);
+      g.addColorStop(0, '#1d3b66'); g.addColorStop(1, '#050b16');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.cx, this.cy, this.R, 0, Math.PI * 2); ctx.fill();
+    }
+    // 대기 글로우
+    ctx.save(); ctx.globalCompositeOperation = 'destination-over';
+    const gl = ctx.createRadialGradient(this.cx, this.cy, this.R * .96, this.cx, this.cy, this.R * 1.19);
+    gl.addColorStop(0, 'rgba(110,170,255,.55)'); gl.addColorStop(.35, 'rgba(70,130,255,.18)'); gl.addColorStop(1, 'rgba(40,90,255,0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(this.cx, this.cy, this.R * 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    if (ov.arc) this.drawArc(ov.arc);
+    if (ov.pins) this.drawPins(ov);
+    if (ov.plane) this.drawPlane(ov.plane);
+  }
+  drawPins(ov) {
+    const ctx = this.ctx, s = this.n / 600, now = performance.now();
+    const items = [];
+    for (const L of LOCS) {
+      const p = this.projV(L.vec);
+      if (p.z <= 0.02) continue;
+      items.push({ L, p });
+    }
+    items.sort((a, b) => a.p.z - b.p.z);
+    for (const { L, p } of items) {
+      const isCur = ov.current === L.id, isHot = ov.hover === L.id;
+      const fade = clamp(p.z * 3, 0, 1);
+      const base = (ov.small ? 3.2 : 5) * s * (isHot ? 1.5 : 1);
+      ctx.globalAlpha = fade;
+      // 펄스 링
+      const ph = ((now / 1600) + L.phase) % 1;
+      ctx.strokeStyle = isCur ? 'rgba(255,255,255,' + (1 - ph) * .9 + ')' : 'rgba(255,207,107,' + (1 - ph) * .8 + ')';
+      ctx.lineWidth = 1.6 * s;
+      ctx.beginPath(); ctx.arc(p.x, p.y, base + ph * 14 * s * (ov.small ? .7 : 1), 0, Math.PI * 2); ctx.stroke();
+      // 점
+      ctx.shadowColor = isCur ? '#fff' : '#ffcf6b'; ctx.shadowBlur = 12 * s;
+      ctx.fillStyle = isCur ? '#ffffff' : '#ffcf6b';
+      ctx.beginPath(); ctx.arc(p.x, p.y, base, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+    if (ov.small) return;
+    // 라벨 (겹치지 않게, 호버/현재 우선)
+    const placed = [];
+    const order = items.slice().sort((a, b) => {
+      const pa = (a.L.id === ov.hover ? 3 : a.L.id === ov.current ? 2 : 0) + a.p.z;
+      const pb = (b.L.id === ov.hover ? 3 : b.L.id === ov.current ? 2 : 0) + b.p.z;
+      return pb - pa;
+    });
+    ctx.textBaseline = 'middle';
+    for (const { L, p } of order) {
+      const hot = L.id === ov.hover;
+      ctx.font = `${hot ? 700 : 500} ${Math.round((hot ? 17 : 14) * s)}px 'Noto Sans KR', sans-serif`;
+      const w = ctx.measureText(L.city).width, h = 18 * s;
+      const x = p.x + 11 * s, y = p.y;
+      const box = [x - 4*s, y - h/2 - 2*s, x + w + 4*s, y + h/2 + 2*s];
+      if (!hot && placed.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]))) continue;
+      placed.push(box);
+      ctx.globalAlpha = clamp(p.z * 3, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(box[0], box[1], box[2]-box[0], box[3]-box[1], 6*s) : ctx.rect(box[0], box[1], box[2]-box[0], box[3]-box[1]); ctx.fill();
+      ctx.fillStyle = hot ? '#ffe2a0' : '#fff';
+      ctx.fillText(L.city, x, y + 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+  drawArc({ a, b, t, h }) {
+    const ctx = this.ctx, s = this.n / 600, steps = 72;
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps, k = 1 + h * Math.sin(Math.PI * u);
+      pts.push({ u, ...this.projV(slerp(a, b, u), k) });
+    }
+    ctx.lineCap = 'round';
+    // 남은 경로 (점선)
+    ctx.setLineDash([4 * s, 6 * s]); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2 * s;
+    ctx.beginPath(); let started = false;
+    for (const p of pts) { if (p.u < t || !p.vis) { started = false; continue; } started ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); started = true; }
+    ctx.stroke(); ctx.setLineDash([]);
+    // 지나온 경로
+    ctx.strokeStyle = '#ffcf6b'; ctx.lineWidth = 3 * s; ctx.shadowColor = '#ffcf6b'; ctx.shadowBlur = 10 * s;
+    ctx.beginPath(); started = false;
+    for (const p of pts) { if (p.u > t) break; if (!p.vis) { started = false; continue; } started ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); started = true; }
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  drawPlane({ x, y, ang, size }) {
+    const ctx = this.ctx;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(size, size);
+    ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#ffffff';
+    const up = [[11,0],[8,-1.6],[1.5,-1.6],[-3,-9.5],[-5.5,-9.5],[-3.5,-1.6],[-8,-1.6],[-10,-4.8],[-11.8,-4.8],[-10.6,0]];
+    ctx.beginPath(); ctx.moveTo(up[0][0], up[0][1]);
+    for (let i = 1; i < up.length; i++) ctx.lineTo(up[i][0], up[i][1]);
+    for (let i = up.length - 2; i >= 1; i--) ctx.lineTo(up[i][0], -up[i][1]);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
+LOCS.forEach((L, i) => { L.vec = toVec(L.lat, L.lon); L.phase = (i * 0.137) % 1; });
+
+/* =========================================================
+   시계 페이스 생성
+   ========================================================= */
+let uid = 0;
+function analogSVG(f) {
+  const id = 'f' + (++uid);
+  let s = `<svg viewBox="-100 -100 200 200" aria-hidden="true">
+  <defs>
+    <radialGradient id="${id}d" cx="40%" cy="32%" r="78%"><stop offset="0" stop-color="${f.dial[0]}"/><stop offset="1" stop-color="${f.dial[1]}"/></radialGradient>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${f.bezel[0]}"/><stop offset=".5" stop-color="${f.bezel[1]}"/><stop offset="1" stop-color="${f.bezel[0]}"/></linearGradient>
+    <radialGradient id="${id}g" cx="32%" cy="18%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle r="99" fill="url(#${id}b)"/>
+  <circle r="93.5" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="1"/>
+  <circle r="91" fill="url(#${id}d)"/>`;
+  if (f.deco === 'astro') {
+    s += `<circle r="62" fill="none" stroke="${f.ink}" stroke-opacity=".75" stroke-width="1.2"/>
+      <circle r="52" fill="rgba(0,0,0,.28)"/>
+      <circle cx="0" cy="-16" r="36" fill="none" stroke="${f.ink}" stroke-opacity=".6" stroke-width="1.4"/>
+      <path d="M-52 0 A52 52 0 0 0 52 0 Z" fill="rgba(0,0,0,.25)"/>`;
+    for (let i = 0; i < 24; i++) { const a = i * 15 * RAD; s += `<circle cx="${(57 * Math.sin(a)).toFixed(2)}" cy="${(-57 * Math.cos(a)).toFixed(2)}" r="1.4" fill="${f.ink}" opacity=".85"/>`; }
+  } else if (f.deco === 'stars') {
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < 34; i++) {
+      const r = 12 + rnd() * 46, a = rnd() * Math.PI * 2, sz = .8 + rnd() * 1.6;
+      const x = r * Math.cos(a), y = r * Math.sin(a);
+      s += `<path d="M${x} ${y - sz*2} L${x + sz*.5} ${y - sz*.5} L${x + sz*2} ${y} L${x + sz*.5} ${y + sz*.5} L${x} ${y + sz*2} L${x - sz*.5} ${y + sz*.5} L${x - sz*2} ${y} L${x - sz*.5} ${y - sz*.5}Z" fill="${f.ink}" opacity=".85"/>`;
+    }
+    s += `<circle r="60" fill="none" stroke="${f.ink}" stroke-opacity=".7" stroke-width="1"/>`;
+  } else if (f.deco === 'sun') {
+    for (let i = 0; i < 24; i++) { const a = i * 15 * RAD; s += `<line x1="${(14*Math.sin(a)).toFixed(2)}" y1="${(-14*Math.cos(a)).toFixed(2)}" x2="${((i%2?26:34)*Math.sin(a)).toFixed(2)}" y2="${(-(i%2?26:34)*Math.cos(a)).toFixed(2)}" stroke="${f.ink}" stroke-opacity=".35" stroke-width="1.2"/>`; }
+    s += `<circle r="60" fill="none" stroke="${f.ink}" stroke-opacity=".35" stroke-width=".8"/>`;
+  }
+  for (let i = 0; i < 60; i++) {
+    const a = i * 6 * RAD, major = i % 5 === 0, r1 = major ? 80 : 84.5, r2 = 88.5;
+    s += `<line x1="${(r1*Math.sin(a)).toFixed(2)}" y1="${(-r1*Math.cos(a)).toFixed(2)}" x2="${(r2*Math.sin(a)).toFixed(2)}" y2="${(-r2*Math.cos(a)).toFixed(2)}" stroke="${f.ink}" stroke-width="${major ? 2.6 : .9}" stroke-linecap="round"/>`;
+  }
+  if (f.numerals) {
+    const isRoman = f.numerals === ROMAN;
+    f.numerals.forEach((t, h) => {
+      const a = h * 30 * RAD, r = 69;
+      const fs = isRoman ? (t.length > 3 ? 10.5 : 12.5) : 15;
+      s += `<text x="${(r*Math.sin(a)).toFixed(2)}" y="${(-r*Math.cos(a)).toFixed(2)}" fill="${f.ink}" font-size="${fs}" font-family="'Cormorant Garamond', serif" font-weight="600" text-anchor="middle" dominant-baseline="central">${t}</text>`;
+    });
+  }
+  s += `<g class="hands">
+    <path class="h-hour" d="M-4 12 L-2.6 -42 L0 -50 L2.6 -42 L4 12 Z" fill="${f.hand}"/>
+    <path class="h-min" d="M-2.8 14 L-1.6 -68 L0 -76 L1.6 -68 L2.8 14 Z" fill="${f.hand}"/>
+    <g class="h-sec"><line x1="0" y1="20" x2="0" y2="-82" stroke="${f.sec}" stroke-width="1.3" stroke-linecap="round"/><circle cy="15" r="3.4" fill="${f.sec}"/></g>
+    <circle r="5" fill="url(#${id}b)"/><circle r="1.6" fill="${f.sec}"/>
+  </g>
+  <circle r="91" fill="url(#${id}g)" pointer-events="none"/>
+  </svg>`;
+  return s;
+}
+function digitalHTML(f) {
+  if (f.type === 'led') return `<div class="panel led"><div class="tag">${f.tag}</div><div class="digits"></div><div class="row"><span>● LIVE</span><span>STOPWATCH</span></div></div>`;
+  if (f.type === 'ticker') return `<div class="panel ticker"><div class="tag">${f.tag}</div><div class="digits"></div><div class="tape"><div class="tape-inner"></div></div></div>`;
+  if (f.type === 'dash') return `<div class="panel dash"><div class="row" style="margin:0 0 8px"><span>${f.tag}</span><span>72°F</span></div><div class="digits"></div><div class="row"><span>TRIP</span><span>I-5 · US-101</span></div></div>`;
+  return `<div class="panel neon"><div class="tag">${f.tag}</div><div class="digits"></div><div class="row"><span>ネオン</span><span>STOPWATCH</span></div></div>`;
+}
+
+/* =========================================================
+   상태
+   ========================================================= */
+let current = null, sceneIdx = 0;
+let hands = null, digitsEl = null, tapeEl = null;
+let running = false, startTime = 0, elapsed = 0, lapStart = 0, laps = [];
+const nowMs = () => elapsed + (running ? performance.now() - startTime : 0);
+
+const faceEl = $('face'), readoutEl = $('readout');
+const bgLayers = document.querySelectorAll('.bg-layer');
+let bgFront = 0, bgToken = 0;
+
+function setBackground(scene) {
+  const tok = ++bgToken, url = IMG(...scene.img);
+  const im = new Image();
+  im.onload = () => {
+    if (tok !== bgToken) return;
+    const next = bgLayers[1 - bgFront];
+    next.style.backgroundImage = `url("${url}")`;
+    next.style.backgroundPosition = scene.pos || 'center';
+    next.style.animation = 'none'; void next.offsetWidth; next.style.animation = '';
+    next.classList.add('show'); bgLayers[bgFront].classList.remove('show');
+    bgFront = 1 - bgFront;
+  };
+  im.onerror = () => { if (tok === bgToken) toast('사진을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'); };
+  im.src = url;
+}
+function preload(scene) { const im = new Image(); im.src = IMG(...scene.img); }
+
+function setLocation(L, si = 0) {
+  current = L; sceneIdx = si;
+  const sc = L.scenes[si];
+  $('placeEn').textContent = sc.en;
+  $('placeTitle').textContent = sc.title;
+  $('placeSub').textContent = `${L.city}, ${L.country}`;
+  const sb = $('sceneBtn');
+  if (L.scenes.length > 1) { sb.hidden = false; sb.textContent = '⇄ ' + L.scenes[(si + 1) % L.scenes.length].short + '(으)로 전환'; }
+  else sb.hidden = true;
+  document.documentElement.style.setProperty('--accent', sc.face.accent);
+  buildFace(sc.face);
+  setBackground(sc);
+  $('credit').innerHTML = `Photo · <a href="${FILEPAGE(sc.img[0])}" target="_blank" rel="noopener">Wikimedia Commons</a> · Globe · NASA Blue Marble`;
+  updateLocalTime(true);
+  drawMini();
+  paint();
+}
+function buildFace(f) {
+  if (f.type === 'analog') {
+    faceEl.className = 'face analog';
+    faceEl.style.setProperty('--glow', f.glow);
+    faceEl.innerHTML = analogSVG(f);
+    hands = { h: faceEl.querySelector('.h-hour'), m: faceEl.querySelector('.h-min'), s: faceEl.querySelector('.h-sec') };
+    digitsEl = null; tapeEl = null; readoutEl.hidden = false;
+  } else {
+    faceEl.className = 'face digital';
+    faceEl.innerHTML = digitalHTML(f);
+    hands = null; digitsEl = faceEl.querySelector('.digits'); tapeEl = faceEl.querySelector('.tape-inner');
+    readoutEl.hidden = true;
+    updateTape();
+  }
+  faceEl.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
+
+/* 현지 시각 */
+let lastLocalSec = -1, tzFmt = null, tzZone = null, tzFor = null;
+function updateLocalTime(force) {
+  if (!current) return;
+  const sec = Math.floor(Date.now() / 1000);
+  if (!force && sec === lastLocalSec) return;
+  lastLocalSec = sec;
+  if (tzFor !== current.tz) {
+    tzFor = current.tz;
+    tzFmt = new Intl.DateTimeFormat('ko-KR', { timeZone: current.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    try { tzZone = new Intl.DateTimeFormat('en-US', { timeZone: current.tz, timeZoneName: 'shortOffset' }); } catch (e) { tzZone = null; }
+  }
+  const d = new Date();
+  $('localTime').textContent = tzFmt.format(d);
+  const zn = tzZone ? (tzZone.formatToParts(d).find(p => p.type === 'timeZoneName') || {}).value : '';
+  $('localZone').textContent = current.tz.split('/').pop().replace(/_/g, ' ') + (zn ? ' · ' + zn : '');
+}
+
+/* =========================================================
+   스탑워치
+   ========================================================= */
+const startBtn = $('startBtn'), lapBtn = $('lapBtn'), lapsEl = $('laps'), lapsWrap = $('lapsWrap');
+let rafId = null;
+function paint() {
+  const ms = nowMs(), html = fmtHTML(ms);
+  if (digitsEl) digitsEl.innerHTML = html; else readoutEl.innerHTML = html;
+  if (hands) {
+    hands.h.setAttribute('transform', `rotate(${((ms / 3600000) % 12) * 30})`);
+    hands.m.setAttribute('transform', `rotate(${((ms / 60000) % 60) * 6})`);
+    hands.s.setAttribute('transform', `rotate(${((ms / 1000) % 60) * 6})`);
+  }
+  const cur = document.getElementById('currentLap');
+  if (cur) cur.lastChild.textContent = fmt(ms - lapStart).join('');
+}
+function loop() { paint(); updateLocalTime(); rafId = requestAnimationFrame(loop); }
+
+function renderLaps() {
+  lapsEl.innerHTML = '';
+  const show = running || elapsed > 0;
+  lapsWrap.hidden = !show;
+  if (!show) { updateTape(); return; }
+  const li = document.createElement('li'); li.id = 'currentLap';
+  li.innerHTML = `<span>랩 ${laps.length + 1}</span><span></span>`;
+  lapsEl.appendChild(li);
+  let min = -1, max = -1;
+  if (laps.length >= 2) { min = laps.indexOf(Math.min(...laps)); max = laps.indexOf(Math.max(...laps)); }
+  for (let i = laps.length - 1; i >= 0; i--) {
+    const el = document.createElement('li');
+    if (i === min) el.className = 'best'; else if (i === max) el.className = 'worst';
+    el.innerHTML = `<span>랩 ${i + 1}</span><span>${fmt(laps[i]).join('')}</span>`;
+    lapsEl.appendChild(el);
+  }
+  paint(); updateTape();
+}
+function updateTape() {
+  if (!tapeEl) return;
+  if (!laps.length) { tapeEl.innerHTML = 'WORLD STOPWATCH ▪ PRESS START ▪ LAP TO SPLIT ▪ WALL STREET · NEW YORK ▪'; return; }
+  const avg = laps.reduce((a, b) => a + b, 0) / laps.length;
+  tapeEl.innerHTML = laps.map((v, i) => {
+    const up = v <= avg;
+    return `LAP${i + 1} <span class="${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${fmt(v).join('')}</span>`;
+  }).join(' &nbsp;▪&nbsp; ') + ' &nbsp;▪';
+}
+function updateButtons() {
+  startBtn.textContent = running ? '정지' : '시작';
+  startBtn.classList.toggle('running', running);
+  lapBtn.textContent = running ? '랩' : '초기화';
+  lapBtn.disabled = !running && elapsed === 0;
+}
+function toggle() {
+  if (running) { elapsed = nowMs(); running = false; }
+  else { startTime = performance.now(); running = true; }
+  updateButtons(); renderLaps();
+}
+function lap() { if (!running) return; const t = nowMs(); laps.push(t - lapStart); lapStart = t; renderLaps(); }
+function reset() { if (running) return; elapsed = 0; lapStart = 0; laps = []; renderLaps(); updateButtons(); paint(); }
+startBtn.addEventListener('click', toggle);
+lapBtn.addEventListener('click', () => running ? lap() : reset());
+$('sceneBtn').addEventListener('click', () => setLocation(current, (sceneIdx + 1) % current.scenes.length));
+
+/* =========================================================
+   미니 지구본 + 비행
+   ========================================================= */
+const miniWrap = $('miniWrap'), miniCanvas = $('mini');
+const mini = new Globe(miniCanvas);
+let flying = false;
+function miniRes() { return Math.min(420, miniCanvas.clientWidth * (window.devicePixelRatio || 1) * 1.9); }
+function drawMini() {
+  if (flying || !current) return;
+  mini.setRes(miniRes());
+  mini.draw(current.lat - 8, current.lon, { pins: true, small: true, current: current.id });
+}
+function flyTo(L) {
+  if (flying) return;
+  if (!current || current.id === L.id) { setLocation(L); return; }
+  const from = current, A = from.vec, B = L.vec;
+  const ang = Math.acos(clamp(A[0]*B[0] + A[1]*B[1] + A[2]*B[2], -1, 1));
+  const dur = 2200 + ang * 900, h = .05 + .12 * ang / Math.PI;
+  preload(L.scenes[0]);
+  flying = true; miniWrap.classList.add('flying');
+  const tag = $('flightTag'); tag.textContent = `✈ ${from.city} → ${L.city}`; tag.classList.add('show');
+  mini.setRes(miniRes());
+  const t0 = performance.now() + 450;
+  function step(now) {
+    const t = clamp((now - t0) / dur, 0, 1), e = ease(t);
+    const P = slerp(A, B, e), c = toLatLon(P);
+    mini.basis(c.lat, c.lon);
+    const k = 1 + h * Math.sin(Math.PI * e);
+    const p = mini.projV(P, k), q = mini.projV(slerp(A, B, Math.min(1, e + .01)), 1 + h * Math.sin(Math.PI * Math.min(1, e + .01)));
+    const headAng = Math.atan2(q.y - p.y, q.x - p.x);
+    mini.draw(c.lat, c.lon, { arc: { a: A, b: B, t: e, h }, pins: true, small: true, current: from.id,
+      plane: { x: p.x, y: p.y, ang: (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) < .01) ? -Math.PI / 2 : headAng, size: mini.n / 300 * (1 + .35 * Math.sin(Math.PI * e)) } });
+    if (t < 1) requestAnimationFrame(step);
+    else {
+      tag.classList.remove('show');
+      setTimeout(() => {
+        flying = false; miniWrap.classList.remove('flying');
+        setLocation(L); toast(`${L.city}에 도착했어요 · ${L.scenes[0].title}`);
+      }, 250);
+    }
+  }
+  requestAnimationFrame(step);
+}
+miniWrap.addEventListener('click', () => { if (!flying) openPicker(false); });
+
+/* =========================================================
+   지구본 선택 화면
+   ========================================================= */
+const picker = $('picker'), bigCanvas = $('big');
+const big = new Globe(bigCanvas);
+const view = { lat: 28, lon: 40 };
+let pickerOpen = false, initialPick = false, pickerRaf = null, hover = null, drag = null, lastInteract = 0, cdStart = 0, pickLocked = false;
+
+const chipsEl = $('chips');
+LOCS.forEach(L => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = L.city; b.dataset.id = L.id;
+  b.addEventListener('click', () => choose(L));
+  b.addEventListener('mouseenter', () => { hover = L.id; lastInteract = performance.now(); });
+  b.addEventListener('mouseleave', () => { hover = null; });
+  chipsEl.appendChild(b);
+});
+
+function openPicker(initial) {
+  initialPick = initial; pickerOpen = true; pickLocked = false; hover = null;
+  if (current) { view.lat = clamp(current.lat - 10, -60, 60); view.lon = current.lon; }
+  $('countdown').hidden = !initial;
+  $('closePicker').hidden = initial;
+  chipsEl.querySelectorAll('.chip').forEach(c => c.classList.toggle('current', !!current && c.dataset.id === current.id));
+  picker.classList.add('open');
+  cdStart = performance.now(); lastInteract = 0;
+  sizeBig();
+  cancelAnimationFrame(pickerRaf);
+  let last = performance.now();
+  const frame = now => {
+    if (!pickerOpen) return;
+    const dt = Math.min(64, now - last); last = now;
+    if (!drag && !hover && now - lastInteract > 2500) view.lon += dt * 0.006;
+    big.draw(view.lat, view.lon, { pins: true, current: current && current.id, hover });
+    chipsEl.querySelectorAll('.chip').forEach(c => c.classList.toggle('hot', c.dataset.id === hover));
+    if (initialPick) {
+      const left = Math.max(0, 10000 - (now - cdStart));
+      $('cdNum').textContent = Math.ceil(left / 1000);
+      $('cdRing').setAttribute('stroke-dashoffset', (169.6 * (1 - left / 10000)).toFixed(1));
+      if (left <= 0 && !pickLocked) {
+        const L = LOCS[Math.floor(Math.random() * LOCS.length)];
+        choose(L, true);
+      }
+    }
+    pickerRaf = requestAnimationFrame(frame);
+  };
+  pickerRaf = requestAnimationFrame(frame);
+}
+function closePicker() {
+  pickerOpen = false; picker.classList.remove('open'); cancelAnimationFrame(pickerRaf);
+}
+function choose(L, auto = false) {
+  if (pickLocked) return; pickLocked = true;
+  hover = L.id;
+  if (auto) toast(`10초가 지나 무작위로 골랐어요 · ${L.city}`);
+  const wasInitial = initialPick;
+  setTimeout(() => {
+    closePicker();
+    if (wasInitial) {
+      setLocation(L);
+      $('app').classList.add('ready');
+      if (!rafId) loop();
+    } else {
+      setTimeout(() => flyTo(L), 350);
+    }
+  }, 380);
+}
+function sizeBig() {
+  const css = bigCanvas.clientWidth || 600;
+  big.setRes(Math.min(680, css * (window.devicePixelRatio || 1)));
+}
+function hitTest(e) {
+  const r = bigCanvas.getBoundingClientRect(), sc = big.n / r.width;
+  const x = (e.clientX - r.left) * sc, y = (e.clientY - r.top) * sc;
+  let best = null, bd = 20 * sc;
+  big.basis(view.lat, view.lon);
+  for (const L of LOCS) {
+    const p = big.projV(L.vec); if (p.z <= .05) continue;
+    const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = L; }
+  }
+  return best;
+}
+bigCanvas.addEventListener('pointerdown', e => {
+  drag = { x: e.clientX, y: e.clientY, lat: view.lat, lon: view.lon, moved: 0 };
+  bigCanvas.setPointerCapture(e.pointerId); bigCanvas.classList.add('dragging');
+});
+bigCanvas.addEventListener('pointermove', e => {
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+    const cssR = bigCanvas.clientWidth * .42;
+    view.lon = drag.lon - dx / cssR / RAD;
+    view.lat = clamp(drag.lat + dy / cssR / RAD, -75, 75);
+    lastInteract = performance.now();
+  } else {
+    const h = hitTest(e); hover = h ? h.id : null;
+    bigCanvas.classList.toggle('hovering', !!h);
+  }
+});
+bigCanvas.addEventListener('pointerup', e => {
+  if (drag && drag.moved < 6) { const h = hitTest(e); if (h) choose(h); }
+  drag = null; bigCanvas.classList.remove('dragging'); lastInteract = performance.now();
+});
+bigCanvas.addEventListener('pointerleave', () => { if (!drag) hover = null; });
+$('closePicker').addEventListener('click', closePicker);
+
+/* 키보드 */
+document.addEventListener('keydown', e => {
+  if (pickerOpen) { if (e.key === 'Escape' && !initialPick) closePicker(); return; }
+  if (!current) return;
+  if (e.code === 'Space') { e.preventDefault(); toggle(); }
+  else if (e.key === 'l' || e.key === 'L') lap();
+  else if (e.key === 'r' || e.key === 'R') reset();
+  else if (e.key === 'g' || e.key === 'G') { if (!flying) openPicker(false); }
+});
+
+window.addEventListener('resize', () => { if (pickerOpen) sizeBig(); drawMini(); });
+setInterval(drawMini, 60000);
+
+/* 시작 */
+texReady.then(() => { $('globeLoading').remove(); drawMini(); });
+openPicker(true);
+updateButtons();
+</script>
+</body>
+</html>
